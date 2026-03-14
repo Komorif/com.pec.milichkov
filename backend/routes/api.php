@@ -25,6 +25,11 @@ Route::post('/login', function (Request $request) {
     return response()->json(['message' => 'Invalid token'], 401);
 });
 
+use App\Http\Controllers\UserController;
+
+Route::get('/user-profile', [UserController::class, 'index']);
+Route::post('/update-avatar', [UserController::class, 'updateAvatar']);
+
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });

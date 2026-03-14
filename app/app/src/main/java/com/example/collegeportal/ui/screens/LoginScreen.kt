@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,7 +23,8 @@ import com.example.collegeportal.util.DateUtils
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (String) -> Unit
+    onLoginSuccess: (String) -> Unit,
+    onSettingsClick: () -> Unit
 ) {
     var accessCode by remember { mutableStateOf("") }
     val dayOfWeek = remember { DateUtils.getCurrentDayOfWeek() }
@@ -43,12 +45,22 @@ fun LoginScreen(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             // Header: Title
-            Text(
-                text = "Вход в аккаунт",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium
-            )
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Вход в аккаунт",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+                
+                IconButton(
+                    onClick = onSettingsClick,
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                ) {
+                    Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
+                }
+            }
 
             // Logo Placeholder (Using a generic icon for now)
             Surface(

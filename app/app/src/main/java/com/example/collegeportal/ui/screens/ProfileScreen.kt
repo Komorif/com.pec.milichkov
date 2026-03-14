@@ -123,7 +123,7 @@ fun ProfileScreen(
                 colors = CardDefaults.cardColors(containerColor = DesignCardBlue)
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
-                    DetailRow("группа", user.direction)
+                    DetailRow("группа", user.group)
                     DetailRow("организация", user.educationalOrganization)
                     DetailRow("курс", user.course)
                 }

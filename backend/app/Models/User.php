@@ -23,10 +23,9 @@ class User extends Authenticatable
         'last_name',
         'surname',
         'educational_organization',
-        'date_of_issue',
-        'organization_level',
-        'direction',
+        'group',
         'course',
+        'avatar',
     ];
 
     /**

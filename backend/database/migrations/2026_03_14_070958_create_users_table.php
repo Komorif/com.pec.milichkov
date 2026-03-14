@@ -18,10 +18,9 @@ return new class extends Migration
             $table->string('last_name');
             $table->string('surname');
             $table->string('educational_organization');
-            $table->string('date_of_issue');
-            $table->string('organization_level');
-            $table->string('direction');
+            $table->string('group');
             $table->string('course');
+            $table->string('avatar')->nullable();
             $table->timestamps();
         });
     }

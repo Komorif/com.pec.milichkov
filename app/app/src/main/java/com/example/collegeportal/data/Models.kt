@@ -9,12 +9,18 @@ data class User(
     @SerializedName("last_name") val lastName: String,
     val surname: String,
     @SerializedName("educational_organization") val educationalOrganization: String,
-    @SerializedName("date_of_issue") val dateOfIssue: String,
-    @SerializedName("organization_level") val organizationLevel: String,
-    val direction: String,
-    val course: String
+    val group: String,
+    val course: String,
+    val avatar: String? = null,
+    @SerializedName("avatar_url") val avatarUrl: String? = null
 )
 
 data class LoginRequest(
     @SerializedName("user_token") val userToken: String
+)
+
+data class AvatarResponse(
+    val message: String,
+    val avatar: String,
+    @SerializedName("avatar_url") val avatarUrl: String
 )

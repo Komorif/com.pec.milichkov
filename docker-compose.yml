@@ -11,6 +11,26 @@ services:
     volumes:
       - db_data:/var/lib/mysql
 
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: final_project_api
+    restart: always
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: laravel
+      DB_USERNAME: root
+      DB_PASSWORD: rootroot
+    ports:
+      - '8000:8000'
+    depends_on:
+      - db
+    volumes:
+      - ./backend:/var/www
+
   phpmyadmin:
     image: phpmyadmin:latest
     container_name: final_project_phpmyadmin
