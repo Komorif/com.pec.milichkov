@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -38,50 +39,79 @@ class MainActivity : ComponentActivity() {
         setContent {
             CollegePortalTheme {
                 AppNavigation(
-                    onLogin = { token, onSuccess ->
+                    onLogin = { loginToken, onSuccess ->
                         lifecycleScope.launch {
                             try {
-                                val response = NetworkModule.apiService.login(LoginRequest(token))
-                                if (response.isSuccessful) {
-                                    Toast.makeText(this@MainActivity, "Код верный", Toast.LENGTH_SHORT).show()
-                                    response.body()?.let { onSuccess(it) }
+                                val response = NetworkModule.apiService.login(LoginRequest(loginToken))
+                                 if (response.isSuccessful) {
+                                    response.body()?.let { 
+                                        NetworkModule.setAuthToken(this@MainActivity, it.token)
+                                        Toast.makeText(this@MainActivity, "Код верный", Toast.LENGTH_SHORT).show()
+                                        onSuccess(it.user) 
+                                    }
                                 } else {
-                                    Toast.makeText(this@MainActivity, "Код неверный", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(this@MainActivity, "Код неверный", Toast.LENGTH_LONG).show()
                                 }
                             } catch (e: Exception) {
                                 Toast.makeText(this@MainActivity, "Ошибка сети: ${e.message}", Toast.LENGTH_SHORT).show()
                             }
                         }
                     },
-                    onUploadAvatar = { token, uri, onSuccess ->
+                    onUploadAvatar = { uri, onComplete ->
                         lifecycleScope.launch {
                             try {
-                                val file = uriToFile(uri) ?: return@launch
+                                val file = uriToFile(uri) ?: run {
+                                    onComplete(null)
+                                    return@launch
+                                }
                                 val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
                                 val body = MultipartBody.Part.createFormData("avatar", file.name, requestFile)
-                                val tokenBody = token.toRequestBody("text/plain".toMediaTypeOrNull())
 
-                                val response = NetworkModule.apiService.updateAvatar(tokenBody, body)
+                                val response = NetworkModule.apiService.updateAvatar(body)
                                 if (response.isSuccessful) {
                                     Toast.makeText(this@MainActivity, "Аватар обновлен", Toast.LENGTH_SHORT).show()
-                                    onSuccess(response.body()?.avatarUrl ?: "")
+                                    onComplete(response.body()?.avatarUrl ?: "")
                                 } else {
-                                    Toast.makeText(this@MainActivity, "Ошибка загрузки", Toast.LENGTH_SHORT).show()
+                                    val errorMsg = if (response.code() == 422) {
+                                        "Неверный формат или слишком большой размер файла"
+                                    } else {
+                                        "Ошибка загрузки: ${response.code()}"
+                                    }
+                                    Toast.makeText(this@MainActivity, errorMsg, Toast.LENGTH_SHORT).show()
+                                    onComplete(null)
                                 }
                             } catch (e: Exception) {
                                 Toast.makeText(this@MainActivity, "Ошибка сети: ${e.message}", Toast.LENGTH_SHORT).show()
+                                onComplete(null)
                             }
                         }
                     },
-                    onRefreshProfile = { token, onSuccess ->
+                    onRefreshProfile = { onSuccess ->
                         lifecycleScope.launch {
                             try {
-                                val response = NetworkModule.apiService.getProfile(token)
+                                val response = NetworkModule.apiService.getProfile()
                                 if (response.isSuccessful) {
                                     response.body()?.let { onSuccess(it) }
                                 }
                             } catch (e: Exception) {
                                 // Silent fail for background refresh
+                            }
+                        }
+                    },
+                    onSelectPresetAvatar = { index, onComplete ->
+                        lifecycleScope.launch {
+                            try {
+                                val response = NetworkModule.apiService.updateAvatarPreset(mapOf("preset_index" to index))
+                                if (response.isSuccessful) {
+                                    Toast.makeText(this@MainActivity, "Аватар обновлен", Toast.LENGTH_SHORT).show()
+                                    onComplete(response.body()?.avatarUrl ?: "")
+                                } else {
+                                    Toast.makeText(this@MainActivity, "Ошибка загрузки: ${response.code()}", Toast.LENGTH_SHORT).show()
+                                    onComplete(null)
+                                }
+                            } catch (e: Exception) {
+                                Toast.makeText(this@MainActivity, "Ошибка сети: ${e.message}", Toast.LENGTH_SHORT).show()
+                                onComplete(null)
                             }
                         }
                     }
@@ -109,16 +139,18 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation(
     onLogin: (String, (User) -> Unit) -> Unit,
-    onUploadAvatar: (String, String, (String) -> Unit) -> Unit,
-    onRefreshProfile: (String, (User) -> Unit) -> Unit
+    onUploadAvatar: (String, (String?) -> Unit) -> Unit,
+    onSelectPresetAvatar: (Int, (String?) -> Unit) -> Unit,
+    onRefreshProfile: ((User) -> Unit) -> Unit
 ) {
+    val context = LocalContext.current
     val navController = rememberNavController()
     var currentUser by remember { mutableStateOf<User?>(null) }
     var avatarUri by remember { mutableStateOf<String?>(null) }
 
     // Sync avatarUri with currentUser.avatarUrl whenever currentUser changes
     LaunchedEffect(currentUser) {
-        currentUser?.avatarUrl?.let { avatarUri = it }
+        avatarUri = NetworkModule.fixUrl(currentUser?.avatarUrl)
     }
 
     NavHost(navController = navController, startDestination = "login") {
@@ -145,9 +177,22 @@ fun AppNavigation(
                     onBack = { navController.popBackStack() },
                     avatarUri = avatarUri,
                     onAvatarClick = { navController.navigate("avatar_selection") },
-                    onAvatarPicked = { uri -> 
-                        onUploadAvatar(user.userToken, uri) { newUrl ->
-                            avatarUri = newUrl
+                    onAvatarPicked = { uri, onFinished -> 
+                        onUploadAvatar(uri) { newUrl ->
+                            if (newUrl != null) {
+                                val fixedUrl = NetworkModule.fixUrl(newUrl)
+                                avatarUri = fixedUrl
+                                // Update currentUser to persist the new avatarUrl in state
+                                currentUser = currentUser?.copy(avatarUrl = newUrl) 
+                            }
+                            onFinished()
+                        }
+                    },
+                    onLogout = {
+                        NetworkModule.setAuthToken(context, null)
+                        currentUser = null
+                        navController.navigate("login") {
+                            popUpTo("login") { inclusive = true }
                         }
                     }
                 )
@@ -159,12 +204,24 @@ fun AppNavigation(
                     user = user,
                     onBack = { navController.popBackStack() },
                     avatarUri = avatarUri,
-                    onAvatarPicked = { uri -> 
-                        onUploadAvatar(user.userToken, uri) { newUrl ->
-                            avatarUri = newUrl
-                            onRefreshProfile(user.userToken) { updatedUser ->
-                                currentUser = updatedUser
+                    onAvatarPicked = { uri, onFinished -> 
+                        onUploadAvatar(uri) { newUrl ->
+                            if (newUrl != null) {
+                                val fixedUrl = NetworkModule.fixUrl(newUrl)
+                                avatarUri = fixedUrl
+                                // Update currentUser to persist the new avatarUrl in state
+                                currentUser = currentUser?.copy(avatarUrl = newUrl) 
                             }
+                            onFinished()
+                        }
+                    },
+                    onPresetSelected = { index, onFinished ->
+                        onSelectPresetAvatar(index) { newUrl ->
+                            if (newUrl != null) {
+                                avatarUri = newUrl // No fixUrl needed for presets
+                                currentUser = currentUser?.copy(avatarUrl = newUrl)
+                            }
+                            onFinished()
                         }
                     }
                 )

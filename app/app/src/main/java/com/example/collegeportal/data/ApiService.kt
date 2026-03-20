@@ -7,15 +7,22 @@ import retrofit2.http.*
 
 interface ApiService {
     @POST("login")
-    suspend fun login(@Body request: LoginRequest): Response<User>
+    suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
 
     @GET("user-profile")
-    suspend fun getProfile(@Query("user_token") token: String): Response<User>
+    suspend fun getProfile(): Response<User>
+
+    @GET("all-data")
+    suspend fun getAllData(): Response<AllDataResponse>
 
     @Multipart
     @POST("update-avatar")
     suspend fun updateAvatar(
-        @Part("user_token") token: RequestBody,
         @Part avatar: MultipartBody.Part
+    ): Response<AvatarResponse>
+
+    @POST("update-avatar")
+    suspend fun updateAvatarPreset(
+        @Body request: Map<String, Int>
     ): Response<AvatarResponse>
 }

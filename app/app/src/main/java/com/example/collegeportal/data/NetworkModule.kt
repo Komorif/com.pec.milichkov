@@ -1,13 +1,34 @@
 package com.example.collegeportal.data
 
 import android.content.Context
+
+import okhttp3.Interceptor
+import okhttp3.OkHttpClient
+import okhttp3.Response
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object NetworkModule {
     private var baseUrl = "http://10.0.2.2:8000/api/"
+    private var authToken: String? = null
     
+    private val authInterceptor = Interceptor { chain ->
+        val original = chain.request()
+        val builder = original.newBuilder()
+        
+        authToken?.let {
+            builder.header("Authorization", "Bearer $it")
+        }
+        
+        builder.header("Accept", "application/json")
+        chain.proceed(builder.build())
+    }
+
+    private val client = OkHttpClient.Builder()
+        .addInterceptor(authInterceptor)
+        .build()
+
     private var retrofit: Retrofit = buildRetrofit(baseUrl)
     var apiService: ApiService = retrofit.create(ApiService::class.java)
         private set
@@ -16,8 +37,15 @@ object NetworkModule {
         val validUrl = url.toHttpUrlOrNull() ?: "http://10.0.2.2:8000/api/".toHttpUrlOrNull()!!
         return Retrofit.Builder()
             .baseUrl(validUrl)
+            .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
+    }
+
+    fun setAuthToken(context: Context, token: String?) {
+        authToken = token
+        val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        prefs.edit().putString("auth_token", token).apply()
     }
 
     fun initialize(context: Context) {
@@ -25,6 +53,7 @@ object NetworkModule {
             val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
             val savedIp = prefs.getString("server_ip", "10.0.2.2") ?: "10.0.2.2"
             val savedPort = prefs.getString("server_port", "8000") ?: "8000"
+            authToken = prefs.getString("auth_token", null)
             updateBaseUrl(savedIp, savedPort)
         } catch (e: Exception) {
             updateBaseUrl("10.0.2.2", "8000")
@@ -58,6 +87,12 @@ object NetworkModule {
         return baseUrl
     }
     
+    fun fixUrl(url: String?): String? {
+        if (url == null) return null
+        val currentHost = baseUrl.removePrefix("http://").removePrefix("https://").substringBefore("/")
+        return url.replace("localhost", currentHost).replace("127.0.0.1", currentHost)
+    }
+
     fun getCurrentIp(context: Context): String {
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         return prefs.getString("server_ip", "10.0.2.2") ?: "10.0.2.2"

@@ -35,17 +35,25 @@ fun ProfileScreen(
     onBack: () -> Unit,
     avatarUri: String?,
     onAvatarClick: () -> Unit,
-    onAvatarPicked: (String) -> Unit
+    onAvatarPicked: (String, () -> Unit) -> Unit,
+    onLogout: () -> Unit
 ) {
     val fullName = "${user.lastName} ${user.firstName} ${user.surname}"
     val qrBitmap = remember(fullName) {
         QrCodeGenerator.generate(fullName)
     }
 
+    var isUploading by remember { mutableStateOf(false) }
+
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri ->
-            uri?.let { onAvatarPicked(it.toString()) }
+            uri?.let { 
+                isUploading = true
+                onAvatarPicked(it.toString()) {
+                    isUploading = false
+                }
+            }
         }
     )
 
@@ -76,7 +84,7 @@ fun ProfileScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Avatar with edit icon
-            Box(contentAlignment = Alignment.BottomEnd) {
+            Box(contentAlignment = Alignment.Center) {
                 Surface(
                     modifier = Modifier.size(150.dp),
                     shape = CircleShape,
@@ -84,23 +92,38 @@ fun ProfileScreen(
                     color = Color.LightGray
                 ) {
                     if (avatarUri != null) {
-                        AsyncImage(
-                            model = avatarUri,
-                            contentDescription = "Avatar",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
+                        if (avatarUri.startsWith("preset:")) {
+                            val index = avatarUri.substringAfter(":").toIntOrNull() ?: 0
+                            val color = AvatarColors.getOrElse(index) { Color.LightGray }
+                            Box(modifier = Modifier.fillMaxSize().background(color))
+                        } else {
+                            AsyncImage(
+                                model = avatarUri,
+                                contentDescription = "Avatar",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
                     }
                 }
-                IconButton(
-                    onClick = {
-                        launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    },
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(Color.DarkGray, CircleShape)
-                ) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit Avatar", tint = Color.White, modifier = Modifier.size(20.dp))
+                
+                if (isUploading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(50.dp),
+                        color = Color.White
+                    )
+                } else {
+                    IconButton(
+                        onClick = {
+                            launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(40.dp)
+                            .background(Color.DarkGray, CircleShape)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit Avatar", tint = Color.White, modifier = Modifier.size(20.dp))
+                    }
                 }
             }
 
@@ -127,6 +150,17 @@ fun ProfileScreen(
                     DetailRow("организация", user.educationalOrganization)
                     DetailRow("курс", user.course)
                 }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = onLogout,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f))
+            ) {
+                Text("Выйти из аккаунта", color = Color.White)
             }
 
             Spacer(modifier = Modifier.weight(1f))

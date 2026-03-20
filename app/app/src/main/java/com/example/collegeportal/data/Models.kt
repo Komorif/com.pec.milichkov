@@ -19,6 +19,16 @@ data class LoginRequest(
     @SerializedName("user_token") val userToken: String
 )
 
+data class LoginResponse(
+    val token: String,
+    val user: User
+)
+
+data class AllDataResponse(
+    val user: User,
+    val questions: List<Map<String, Any>>? = null
+)
+
 data class AvatarResponse(
     val message: String,
     val avatar: String,

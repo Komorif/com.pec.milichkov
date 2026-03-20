@@ -28,6 +28,6 @@ COPY . /var/www
 # Install dependencies
 RUN composer install --no-interaction --optimize-autoloader
 
-# Expose port 8000 and start php artisan serve
+# Expose port 8000 and start php artisan serve with custom PHP settings
 EXPOSE 8000
-CMD php artisan serve --host=0.0.0.0 --port=8000
+CMD php -d upload_max_filesize=32M -d post_max_size=32M -d memory_limit=256M artisan serve --host=0.0.0.0 --port=8000

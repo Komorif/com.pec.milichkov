@@ -47,4 +47,27 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+    /**
+     * The attributes that should be appends for serialization.
+     *
+     * @var array<int, string>
+     */
+    protected $appends = [
+        'avatar_url',
+    ];
+
+    /**
+     * Get the avatar URL.
+     *
+     * @return string|null
+     */
+    public function getAvatarUrlAttribute()
+    {
+        if (!$this->avatar) return null;
+        if (str_starts_with($this->avatar, 'preset:')) {
+            return $this->avatar;
+        }
+        return url('storage/' . $this->avatar);
+    }
 }

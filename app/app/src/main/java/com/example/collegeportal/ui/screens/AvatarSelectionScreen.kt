@@ -36,23 +36,26 @@ fun AvatarSelectionScreen(
     user: User,
     onBack: () -> Unit,
     avatarUri: String?,
-    onAvatarPicked: (String) -> Unit
+    onAvatarPicked: (String, () -> Unit) -> Unit,
+    onPresetSelected: (Int, () -> Unit) -> Unit
 ) {
     val fullName = "${user.lastName} ${user.firstName} ${user.surname}"
     val qrBitmap = remember(fullName) {
         QrCodeGenerator.generate(fullName)
     }
 
+    var isUploading by remember { mutableStateOf(false) }
+
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri ->
-            uri?.let { onAvatarPicked(it.toString()) }
+            uri?.let { 
+                isUploading = true
+                onAvatarPicked(it.toString()) {
+                    isUploading = false
+                }
+            }
         }
-    )
-
-    val avatarColors = listOf(
-        Color(0xFFE91E63), Color(0xFF9C27B0), Color(0xFF3F51B5), Color(0xFF2196F3),
-        Color(0xFF00BCD4), Color(0xFF4CAF50), Color(0xFFFFEB3B), Color(0xFFFF9800)
     )
 
     Scaffold(
@@ -81,17 +84,32 @@ fun AvatarSelectionScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(
-                    modifier = Modifier.size(100.dp),
-                    shape = CircleShape,
-                    color = Color.LightGray
-                ) {
-                    if (avatarUri != null) {
-                        AsyncImage(
-                            model = avatarUri,
-                            contentDescription = "Avatar",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
+                Box(contentAlignment = Alignment.Center) {
+                    Surface(
+                        modifier = Modifier.size(100.dp),
+                        shape = CircleShape,
+                        color = Color.LightGray
+                    ) {
+                        if (avatarUri != null) {
+                            if (avatarUri.startsWith("preset:")) {
+                                val index = avatarUri.substringAfter(":").toIntOrNull() ?: 0
+                                val color = AvatarColors.getOrElse(index) { Color.LightGray }
+                                Box(modifier = Modifier.fillMaxSize().background(color))
+                            } else {
+                                AsyncImage(
+                                    model = avatarUri,
+                                    contentDescription = "Avatar",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                        }
+                    }
+                    
+                    if (isUploading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(40.dp),
+                            color = Color.White
                         )
                     }
                 }
@@ -137,12 +155,18 @@ fun AvatarSelectionScreen(
                         columns = GridCells.Fixed(4),
                         spacing = 8.dp
                     ) {
-                        items(avatarColors) { color: Color ->
+                        items(AvatarColors.size) { index ->
+                            val color = AvatarColors[index]
                             Surface(
                                 modifier = Modifier
                                     .aspectRatio(1f)
                                     .clip(CircleShape)
-                                    .clickable { /* Select color-based avatar or placeholder logic */ },
+                                    .clickable { 
+                                        isUploading = true
+                                        onPresetSelected(index) {
+                                            isUploading = false
+                                        }
+                                    },
                                 color = color
                             ) { }
                         }

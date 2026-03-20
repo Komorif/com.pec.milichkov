@@ -20,14 +20,34 @@ import com.example.collegeportal.ui.theme.DesignBlue
 import com.example.collegeportal.ui.theme.DesignCardBlue
 import com.example.collegeportal.ui.theme.DesignWhite
 import com.example.collegeportal.util.DateUtils
+import com.example.collegeportal.ui.components.QrScannerView
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 @Composable
 fun LoginScreen(
     onLoginSuccess: (String) -> Unit,
     onSettingsClick: () -> Unit
 ) {
+    val context = LocalContext.current
     var accessCode by remember { mutableStateOf("") }
+    var showScanner by remember { mutableStateOf(false) }
     val dayOfWeek = remember { DateUtils.getCurrentDayOfWeek() }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            if (isGranted) {
+                showScanner = true
+            }
+        }
+    )
 
     Box(
         modifier = Modifier
@@ -115,7 +135,7 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     trailingIcon = {
-                        IconButton(onClick = { onLoginSuccess(accessCode) }) {
+                        IconButton(onClick = { onLoginSuccess(accessCode.trim()) }) {
                             Icon(
                                 imageVector = Icons.Default.ArrowForward,
                                 contentDescription = "Вход",
@@ -145,10 +165,40 @@ fun LoginScreen(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
-                    onClick = { /* Logic for QR scanning */ },
+                    onClick = { 
+                        when (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)) {
+                            PackageManager.PERMISSION_GRANTED -> showScanner = true
+                            else -> permissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.3f))
                 ) {
                     Text("Tap to Scan QR Code", color = Color.White)
+                }
+            }
+        }
+
+        if (showScanner) {
+            Dialog(
+                onDismissRequest = { showScanner = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                    QrScannerView(
+                        onCodeScanned = { code ->
+                            accessCode = code
+                            showScanner = false
+                            onLoginSuccess(code)
+                        }
+                    )
+                    
+                    Button(
+                        onClick = { showScanner = false },
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = DesignBlue)
+                    ) {
+                        Text("Отмена", color = Color.White)
+                    }
                 }
             }
         }

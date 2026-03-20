@@ -8,28 +8,30 @@ use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
 {
-    /**
-     * Get user profile by token.
-     */
     public function index(Request $request)
     {
-        $token = $request->query('user_token');
-        if (!$token) {
-            return response()->json(['message' => 'Token required'], 400);
+        return response()->json($request->user());
+    }
+
+    /**
+     * Get all data (profile + questions if available).
+     */
+    public function getAllData(Request $request)
+    {
+        $user = $request->user();
+        
+        // Prepare base data
+        $data = [
+            'user' => $user,
+        ];
+
+        // Check for questions.json if it exists
+        $questionsPath = storage_path('app/questions.json');
+        if (file_exists($questionsPath)) {
+            $data['questions'] = json_decode(file_get_contents($questionsPath), true);
         }
 
-        $user = User::where('user_token', $token)->first();
-
-        if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
-        }
-
-        // If avatar exists, return full URL
-        if ($user->avatar) {
-            $user->avatar_url = url('storage/' . $user->avatar);
-        }
-
-        return response()->json($user);
+        return response()->json($data);
     }
 
     /**
@@ -37,20 +39,32 @@ class UserController extends Controller
      */
     public function updateAvatar(Request $request)
     {
-        $request->validate([
-            'user_token' => 'required|string',
-            'avatar' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-        ]);
+        $user = $request->user();
 
-        $user = User::where('user_token', $request->user_token)->first();
+        // Handle preset index selection
+        if ($request->has('preset_index')) {
+            // Delete old avatar file if it exists
+            if ($user->avatar && !str_starts_with($user->avatar, 'preset:')) {
+                Storage::disk('public')->delete($user->avatar);
+            }
 
-        if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
+            $user->avatar = 'preset:' . $request->input('preset_index');
+            $user->save();
+
+            return response()->json([
+                'message' => 'Avatar updated successfully',
+                'avatar_url' => $user->avatar_url
+            ]);
         }
+
+        // Handle file upload
+        $request->validate([
+            'avatar' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:20480', // Increased to 20MB and added webp
+        ]);
 
         if ($request->hasFile('avatar')) {
             // Delete old avatar if exists
-            if ($user->avatar) {
+            if ($user->avatar && !str_starts_with($user->avatar, 'preset:')) {
                 Storage::disk('public')->delete($user->avatar);
             }
 
@@ -62,10 +76,10 @@ class UserController extends Controller
             return response()->json([
                 'message' => 'Avatar updated successfully',
                 'avatar' => $path,
-                'avatar_url' => url('storage/' . $path)
+                'avatar_url' => $user->avatar_url // Uses accessor
             ]);
         }
 
-        return response()->json(['message' => 'No file uploaded'], 400);
+        return response()->json(['message' => 'No file or preset provided'], 400);
     }
 }
