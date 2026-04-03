@@ -10,7 +10,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object NetworkModule {
-    private var baseUrl = "http://10.0.2.2:8000/api/"
+    private var baseUrl = "http://10.0.2.2:8888/api/"
     private var authToken: String? = null
     
     private val authInterceptor = Interceptor { chain ->
@@ -34,7 +34,7 @@ object NetworkModule {
         private set
 
     private fun buildRetrofit(url: String): Retrofit {
-        val validUrl = url.toHttpUrlOrNull() ?: "http://10.0.2.2:8000/api/".toHttpUrlOrNull()!!
+        val validUrl = url.toHttpUrlOrNull() ?: "http://10.0.2.2:8888/api/".toHttpUrlOrNull()!!
         return Retrofit.Builder()
             .baseUrl(validUrl)
             .client(client)
@@ -52,11 +52,11 @@ object NetworkModule {
         try {
             val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
             val savedIp = prefs.getString("server_ip", "10.0.2.2") ?: "10.0.2.2"
-            val savedPort = prefs.getString("server_port", "8000") ?: "8000"
+            val savedPort = prefs.getString("server_port", "8888") ?: "8888"
             authToken = prefs.getString("auth_token", null)
             updateBaseUrl(savedIp, savedPort)
         } catch (e: Exception) {
-            updateBaseUrl("10.0.2.2", "8000")
+            updateBaseUrl("10.0.2.2", "8888")
         }
     }
 
@@ -76,7 +76,7 @@ object NetworkModule {
         }
 
         if (cleanIp.isEmpty()) cleanIp = "10.0.2.2"
-        if (finalPort.isEmpty()) finalPort = "8000"
+        if (finalPort.isEmpty()) finalPort = "8888"
         
         baseUrl = "http://$cleanIp:$finalPort/api/"
         retrofit = buildRetrofit(baseUrl)
@@ -100,7 +100,7 @@ object NetworkModule {
 
     fun getCurrentPort(context: Context): String {
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        return prefs.getString("server_port", "8000") ?: "8000"
+        return prefs.getString("server_port", "8888") ?: "8888"
     }
 
     fun saveSettings(context: Context, ip: String, port: String) {
